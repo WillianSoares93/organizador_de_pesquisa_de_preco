@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pesquisa de Preços</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS (xlsx.js) CDN for Excel operations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: auto; /* Alterado de 100vh para auto */
+            padding: 10px; /* Reduzido de 20px */
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px; /* Reduzido de 30px */
+            border-radius: 12px;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 1200px;
+        }
+        input[type="text"],
+        input[type="number"],
+        input[type="file"],
+        select {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease-in-out;
+        }
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        input[type="file"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+        button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+        }
+        button:hover {
+            transform: translateY(-1px);
+        }
+        .btn-primary {
+            background-color: #3b82f6;
+            color: #ffffff;
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        .btn-danger {
+            background-color: #ef4444;
+            color: #ffffff;
+            border: none;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        .btn-secondary {
+            background-color: #6b7280;
+            color: #ffffff;
+            border: none;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            table-layout: fixed; /* Adicionado para layout de tabela fixo */
+        }
+        th, td {
+            padding: 12px 15px;
+            border: 1px solid #e5e7eb;
+            text-align: left;
+            word-wrap: break-word; /* Permite quebra de palavra */
+            overflow-wrap: break-word; /* Permite quebra de palavra */
+        }
+        th {
+            background-color: #f9fafb;
+            font-weight: 700;
+            color: #374151;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+        }
+        td {
+            background-color: #ffffff;
+            color: #4b5563;
+        }
+        .product-image {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            cursor: pointer; /* Added cursor pointer for clickable images */
+        }
+        .store-group-header {
+            background-color: #e0f2fe; /* Light blue for store header */
+            font-weight: bold;
+        }
+        .store-group-header td {
+            padding: 1rem 15px; /* Ajustado o preenchimento */
+            text-align: center;
+            font-size: 1.125rem; /* text-lg */
+            color: #1e40af; /* text-blue-900 */
+            /* Usar um linear-gradient para o fundo para criar a barra laranja de 10px no topo */
+            background: linear-gradient(to bottom, #f97316 10px, #e0f2fe 10px); /* Laranja nos primeiros 10px, o resto é azul claro */
+            background-repeat: no-repeat;
+            background-size: 100% 100%; /* Garante que o gradiente cubra toda a célula */
+            /* A classe rounded-t-lg do Tailwind já lida com o border-radius superior */
+        }
+
+        .store-summary-row {
+            background-color: #f0f9ff; /* Even lighter blue for store summary */
+            font-weight: bold;
+        }
+        .total-row {
+            font-weight: bold;
+            background-color: #dbeafe; /* Slightly darker blue for grand total */
+        }
+        .empty-table-message {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+        /* Style for editable cells */
+        .editable-cell {
+            background-color: #fffbeb; /* Light yellow background for editable cells */
+            border: 1px dashed #fcd34d; /* Dashed yellow border */
+        }
+        .editable-cell:hover {
+            background-color: #fef3c7; /* Slightly darker yellow on hover */
+        }
+        td[contenteditable="true"]:focus {
+            outline: 2px solid #3b82f6;
+            background-color: #e0f2fe;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: hidden; /* Prevent scroll on modal itself */
+            background-color: rgba(0,0,0,0.8); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+            flex-direction: column; /* For controls */
+        }
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 80%;
+            max-height: 80%;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transform-origin: 0 0; /* Set transform origin for zooming */
+            cursor: grab; /* Cursor for dragging */
+        }
+        .modal-content.dragging {
+            cursor: grabbing;
+        }
+        .close-button {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            z-index: 1001;
+        }
+        .zoom-controls button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .zoom-controls button:hover {
+            background-color: #2563eb;
+        }
+
+        /* New style for per-store subheader */
+        .store-section-subheader th {
+            background-color: #f9fafb; /* Lighter background for sub-headers */
+            font-weight: 600; /* Slightly less bold than main header */
+            color: #4b5563;
+            text-transform: uppercase;
+            font-size: 0.75rem; /* Smaller font size */
+            padding: 8px 15px; /* Reduced padding */
+            border-bottom: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-start justify-center min-h-screen p-5">
+    <div class="container mx-auto p-8 bg-white rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Pesquisa de Preços</h1>
+
+        <form id="priceForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Detalhes do Produto -->
+            <div class="md:col-span-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h2 class="text-lg font-bold text-gray-800 mb-3">Detalhes do Produto</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label for="store" class="block text-sm font-medium text-gray-700 mb-1">Loja:</label>
+                        <input type="text" id="store" name="store" required class="rounded-lg">
+                    </div>
+                    <div>
+                        <label for="product" class="block text-sm font-medium text-gray-700 mb-1">Produto:</label>
+                        <input type="text" id="product" name="product" required class="rounded-lg">
+                    </div>
+                    <div>
+                        <div class="flex items-center mb-1">
+                            <label for="format" class="block text-sm font-medium text-gray-700 mr-2">Formato:</label>
+                            <input type="checkbox" id="formatNotApplicable" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                            <label for="formatNotApplicable" class="ml-1 text-sm text-gray-700">Não se aplica</label>
+                        </div>
+                        <input type="text" id="format" name="format" class="rounded-lg" placeholder="Ex: 60x60cm, Régua, 1 Litro">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detalhes do Preço e Quantidade -->
+            <div class="md:col-span-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h2 class="text-lg font-bold text-gray-800 mb-3">Detalhes do Preço e Quantidade</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Preço:</label>
+                        <div class="flex items-center space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="priceType" value="cash" checked class="form-radio text-blue-600">
+                                <span class="ml-2 text-sm text-gray-700">À Vista</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="priceType" value="card" class="form-radio text-blue-600">
+                                <span class="ml-2 text-sm text-gray-700">Cartão</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="md:col-span-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Informar Preço Como:</label>
+                        <div class="flex items-center space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="priceInputMode" value="unit" checked class="form-radio text-blue-600">
+                                <span class="ml-2 text-sm text-gray-700">Unitário</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="priceInputMode" value="total" class="form-radio text-blue-600">
+                                <span class="ml-2 text-sm text-gray-700">Total</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="price" class="block text-sm font-medium text-gray-700 mb-1">Valor (R$):</label>
+                        <!-- Revertido para type="number" -->
+                        <input type="number" id="price" name="price" step="0.01" min="0" required class="rounded-lg">
+                    </div>
+                    <div>
+                        <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">Quantidade Orçada:</label>
+                        <input type="number" id="quantity" name="quantity" min="0.01" step="0.01" required class="rounded-lg">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload de Imagem -->
+            <div class="md:col-span-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h2 class="text-lg font-bold text-gray-800 mb-3">Upload de Imagem</h2>
+                <div>
+                    <label for="image" class="block text-sm font-medium text-gray-700 mb-1">Upload de Imagem (Opcional):</label>
+                    <input type="file" id="image" name="image" class="rounded-lg" accept="image/*">
+                </div>
+            </div>
+
+            <!-- Configurações de Preço Global -->
+            <div class="md:col-span-3 mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h2 class="text-lg font-bold text-blue-800 mb-3">Configurações de Preço Global</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="discountPercentage" class="block text-sm font-medium text-gray-700 mb-1">Desconto (%) (Cartão para À Vista):</label>
+                        <input type="number" id="discountPercentage" name="discountPercentage" step="0.01" min="0" value="0" class="rounded-lg">
+                    </div>
+                    <div>
+                        <label for="increasePercentage" class="block text-sm font-medium text-gray-700 mb-1">Acréscimo (%) (À Vista para Cartão):</label>
+                        <input type="number" id="increasePercentage" name="increasePercentage" step="0.01" min="0" value="0" class="rounded-lg">
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-3 flex justify-end mt-6 space-x-3">
+                <button type="button" id="exportExcelBtn" class="btn-secondary px-6 py-3 rounded-lg shadow-md hover:shadow-lg">Salvar como Excel</button>
+                <input type="file" id="importExcelInput" accept=".xlsx, .xls" class="hidden">
+                <button type="button" id="importExcelBtn" class="btn-secondary px-6 py-3 rounded-lg shadow-md hover:shadow-lg">Carregar do Excel</button>
+                <button type="submit" class="btn-primary px-6 py-3 rounded-lg shadow-md hover:shadow-lg">Adicionar Produto</button>
+            </div>
+        </form>
+
+        <div class="overflow-x-auto rounded-lg shadow-md mt-8">
+            <table id="priceTable" class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tl-lg">Imagem</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Formato</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Unitário (À Vista)</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Unitário (Cartão)</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantidade</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Total</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tr-lg">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="priceTableBody" class="bg-white divide-y divide-gray-200">
+                    <tr id="emptyTableMessageRow">
+                        <td colspan="8" class="empty-table-message">Adicione produtos para começar a comparar preços.</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="6" class="px-6 py-3 text-right text-sm font-bold text-gray-900">Total Geral:</td>
+                        <td id="grandTotal" colspan="2" class="px-6 py-3 text-left text-sm font-bold text-gray-900"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Image Modal Structure -->
+    <div id="imageModal" class="modal">
+        <span class="close-button" id="closeModalBtn">&times;</span>
+        <img class="modal-content" id="modalImage">
+        <div class="zoom-controls">
+            <button id="zoomInBtn">+</button>
+            <button id="zoomOutBtn">-</button>
+            <button id="resetZoomBtn">Resetar Zoom</button>
+        </div>
+    </div>
+
+    <script>
+        // Helper function to calculate cash and card prices based on input (unit price)
+        function calculateProductPrices(unitPrice, priceType, discount, increase) {
+            let cashPrice = 0;
+            let cardPrice = 0;
+
+            if (priceType === 'cash') {
+                cashPrice = unitPrice;
+                cardPrice = unitPrice * (1 + increase / 100);
+            } else if (priceType === 'card') {
+                cardPrice = unitPrice;
+                cashPrice = unitPrice * (1 - discount / 100);
+            }
+            return { cashPrice, cardPrice };
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const priceForm = document.getElementById('priceForm');
+            const priceTableBody = document.getElementById('priceTableBody');
+            const grandTotalElement = document.getElementById('grandTotal');
+            const formatInput = document.getElementById('format');
+            const formatNotApplicableCheckbox = document.getElementById('formatNotApplicable');
+            const imageInput = document.getElementById('image');
+            const priceTypeRadios = document.querySelectorAll('input[name="priceType"]'); // Seleciona todos os rádios de tipo de preço
+            const discountPercentageInput = document.getElementById('discountPercentage');
+            const increasePercentageInput = document.getElementById('increasePercentage');
+            const priceInputModeRadios = document.querySelectorAll('input[name="priceInputMode"]');
+            const priceInputField = document.getElementById('price');
+            const storeInput = document.getElementById('store'); // Get store input
+            const productInput = document.getElementById('product'); // Get product input
+            const quantityInput = document.getElementById('quantity'); // Get quantity input
+
+            // Excel buttons and input
+            const exportExcelBtn = document.getElementById('exportExcelBtn');
+            const importExcelBtn = document.getElementById('importExcelBtn');
+            const importExcelInput = document.getElementById('importExcelInput');
+
+            // Modal elements
+            const imageModal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const zoomInBtn = document.getElementById('zoomInBtn');
+            const zoomOutBtn = document.getElementById('zoomOutBtn');
+            const resetZoomBtn = document.getElementById('resetZoomBtn');
+
+            let products = [];
+            let currentImageBase64 = null;
+            
+            // storeBudgetDetails now also holds observation and attachedFile and displayType for each store
+            // attachedFiles will be an array of { name: string, type: string, data: string (base64) }
+            let storeBudgetDetails = new Map(); // Map<storeName, {installments: number, observation: string, attachedFiles: Array<{name: string, type: string, data: string}>, displayType: string } >
+
+            // Array to keep track of object URLs created for cleanup
+            let objectUrlsToRevoke = [];
+
+            // Image Zoom/Pan variables
+            let currentScale = 1;
+            let currentTranslateX = 0;
+            let currentTranslateY = 0;
+            let isDragging = false;
+            let startX, startY;
+
+            // Helper function to format a number into the "R$ 0.000,00" format
+            function formatCurrency(value) {
+                if (typeof value !== 'number' || isNaN(value)) {
+                    return 'R$ 0,00'; // Default for invalid numbers
+                }
+                // Use Intl.NumberFormat for robust formatting
+                return new Intl.NumberFormat('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }).format(value);
+            }
+
+            // Helper function to parse a currency string into a float (used for Excel import and editable cells)
+            function parseCurrency(value) {
+                if (typeof value !== 'string') {
+                    return parseFloat(value) || 0; // Try parsing directly if not a string
+                }
+                // Remove "R$", dots for thousands, and replace comma for decimals
+                let cleanedValue = value.replace('R$', '').trim();
+                cleanedValue = cleanedValue.replace(/\./g, ''); // Remove thousands separator
+                cleanedValue = cleanedValue.replace(',', '.'); // Replace decimal comma with dot
+                return parseFloat(cleanedValue) || 0; // Return 0 if parsing fails
+            }
+
+            // Function to apply current transform to modal image
+            function applyImageTransform() {
+                modalImage.style.transform = `scale(${currentScale}) translate(${currentTranslateX}px, ${currentTranslateY}px)`;
+            }
+
+            // Function to reset image zoom/pan
+            function resetImageTransform() {
+                currentScale = 1;
+                currentTranslateX = 0;
+                currentTranslateY = 0;
+                applyImageTransform();
+            }
+
+            // Function to render the table
+            function renderTable() {
+                // Revoke any existing object URLs before re-rendering
+                objectUrlsToRevoke.forEach(url => URL.revokeObjectURL(url));
+                objectUrlsToRevoke = []; // Clear the array
+
+                priceTableBody.innerHTML = '';
+                let grandTotalCash = 0;
+                let grandTotalCard = 0;
+
+                if (products.length === 0) {
+                    const emptyMessageRow = document.createElement('tr');
+                    emptyMessageRow.id = 'emptyTableMessageRow';
+                    emptyMessageRow.innerHTML = `<td colspan="8" class="empty-table-message">Adicione produtos para começar a comparar preços.</td>`;
+                    priceTableBody.appendChild(emptyMessageRow);
+                    grandTotalElement.innerHTML = `${formatCurrency(0)}<br>À Vista<br>${formatCurrency(0)}<br>Cartão`; 
+                    return;
+                }
+
+                const groupedProducts = products.reduce((acc, product) => {
+                    if (!acc[product.store]) {
+                        acc[product.store] = [];
+                    }
+                    acc[product.store].push(product);
+                    return acc;
+                }, {});
+
+                for (const storeName in groupedProducts) {
+                    const storeProducts = groupedProducts[storeName];
+                    let storeCashTotal = 0;
+                    let storeCardSumFromProducts = 0;
+
+                    // Ensure storeBudgetDetails has an entry for this store, with default displayType and empty attachedFiles array
+                    const storeDetails = storeBudgetDetails.get(storeName) || { installments: 1, observation: '', attachedFiles: [], displayType: 'cash' };
+                    storeBudgetDetails.set(storeName, storeDetails); // Set it back to ensure it's always there
+
+                    const storeHeaderRow = document.createElement('tr');
+                    storeHeaderRow.className = 'store-group-header'; 
+                    storeHeaderRow.innerHTML = `
+                        <td colspan="8" class="text-center text-lg font-bold text-blue-900 rounded-t-lg">
+                            ${storeName}
+                        </td>
+                    `;
+                    priceTableBody.appendChild(storeHeaderRow);
+
+                    // Add the sub-header row for each store
+                    const storeSubheaderRow = document.createElement('tr');
+                    storeSubheaderRow.className = 'store-section-subheader'; // New class for styling
+                    storeSubheaderRow.innerHTML = `
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imagem</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Formato</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Unitário (À Vista)</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Unitário (Cartão)</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantidade</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Preço Total
+                            <div class="flex items-center mt-1 space-x-2"> <!-- Changed flex-col to flex and added space-x-2 -->
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="displayTotalType-${storeName.replace(/\s/g, '-')}" value="cash" ${storeDetails.displayType === 'cash' ? 'checked' : ''} class="form-radio text-blue-600 store-total-display-radio" data-store="${storeName}">
+                                    <span class="ml-1 text-xs text-gray-700 whitespace-nowrap">À Vista</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="displayTotalType-${storeName.replace(/\s/g, '-')}" value="card" ${storeDetails.displayType === 'card' ? 'checked' : ''} class="form-radio text-blue-600 store-total-display-radio" data-store="${storeName}">
+                                    <span class="ml-1 text-xs text-gray-700 whitespace-nowrap">Cartão</span>
+                                </label>
+                            </div>
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                    `;
+                    priceTableBody.appendChild(storeSubheaderRow);
+
+
+                    storeProducts.forEach((product) => { 
+                        const globalIndex = products.indexOf(product); 
+                        const totalCalculatedCashPrice = product.calculatedCashPrice * product.quantity;
+                        const totalCalculatedCardPrice = product.calculatedCardPrice * product.quantity;
+                        
+                        const displayedTotalPrice = storeDetails.displayType === 'cash' ? totalCalculatedCashPrice : totalCalculatedCardPrice;
+
+                        storeCashTotal += totalCalculatedCashPrice;
+                        storeCardSumFromProducts += totalCalculatedCardPrice;
+                        
+                        const row = document.createElement('tr');
+                        row.className = 'hover:bg-gray-50';
+                        row.innerHTML = `
+                            <td class="px-6 py-4">
+                                ${product.image ? `<img src="${product.image}" alt="${product.product}" class="product-image" data-full-image="${product.image}" onerror="this.onerror=null;this.src='https://placehold.co/60x60/cccccc/333333?text=Sem+Imagem';">` : `<img src="https://placehold.co/60x60/cccccc/333333?text=Sem+Imagem" alt="Sem Imagem" class="product-image">`}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900 editable-cell" contenteditable="true" data-field="product" data-index="${globalIndex}">${product.product}</td>
+                            <td class="px-6 py-4 text-sm text-gray-900 editable-cell" contenteditable="true" data-field="format" data-index="${globalIndex}">${product.format || 'N/A'}</td>
+                            <td class="px-6 py-4 text-sm text-gray-900 editable-cell" contenteditable="true" data-field="calculatedCashPrice" data-index="${globalIndex}">${formatCurrency(product.calculatedCashPrice)}</td>
+                            <td class="px-6 py-4 text-sm text-gray-900 editable-cell" contenteditable="true" data-field="calculatedCardPrice" data-index="${globalIndex}">${formatCurrency(product.calculatedCardPrice)}</td>
+                            <td class="px-6 py-4 text-sm text-gray-900 editable-cell" contenteditable="true" data-field="quantity" data-index="${globalIndex}">${product.quantity.toFixed(2)}</td>
+                            <td class="px-6 py-4 text-sm text-gray-900">${formatCurrency(displayedTotalPrice)}</td>
+                            <td class="px-6 py-4 text-right text-sm font-medium">
+                                <button data-index="${globalIndex}" class="btn-danger px-3 py-1 text-xs rounded-md delete-btn">Excluir</button>
+                            </td>
+                        `;
+                        priceTableBody.appendChild(row);
+                    });
+
+                    grandTotalCash += storeCashTotal; 
+                    grandTotalCard += storeCardSumFromProducts;
+                    
+                    const currentInstallments = storeDetails.installments;
+                    const storeObservation = storeDetails.observation;
+                    const storeAttachedFiles = storeDetails.attachedFiles || []; // Ensure it's an array
+
+                    const totalCardPriceForStore = storeCardSumFromProducts;
+                    const pricePerInstallment = currentInstallments > 0 ? (totalCardPriceForStore / currentInstallments) : totalCardPriceForStore;
+
+                    const storeSummaryRow = document.createElement('tr');
+                    storeSummaryRow.className = 'store-summary-row';
+                    storeSummaryRow.innerHTML = `
+                        <td colspan="8" class="px-6 py-3 text-left text-sm font-bold text-gray-900">
+                            <div class="flex flex-col space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span>Total À Vista para ${storeName}:</span>
+                                    <span>${formatCurrency(storeCashTotal)}</span>
+                                </div>
+                                <div class="flex items-center space-x-4">
+                                    <span>Parcelas:</span>
+                                    <input type="number" value="${currentInstallments}" min="1" data-store="${storeName}" class="store-installments-input w-24 px-2 py-1 border rounded-md text-sm">
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>Total a Prazo (Calculado):</span>
+                                    <span>${formatCurrency(totalCardPriceForStore)} (${currentInstallments}x de ${formatCurrency(pricePerInstallment)})</span>
+                                </div>
+
+                                <!-- New Observation Field -->
+                                <div class="mt-4">
+                                    <label for="observation-${storeName.replace(/\s/g, '-')}" class="block text-sm font-medium text-gray-700 mb-1">Observação para ${storeName}:</label>
+                                    <textarea id="observation-${storeName.replace(/\s/g, '-')}" data-store="${storeName}" class="store-observation-input w-full p-2 border rounded-md text-sm" rows="2">${storeObservation || ''}</textarea>
+                                </div>
+
+                                <!-- New File Attachment Field -->
+                                <div class="mt-2 flex flex-col">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Anexar Arquivos para ${storeName}:</label>
+                                    <input type="file" id="fileAttachment-${storeName.replace(/\s/g, '-')}" data-store="${storeName}" class="store-file-attachment-input hidden" multiple />
+                                    <button type="button" class="btn-secondary px-3 py-1 text-xs rounded-md w-fit" onclick="document.getElementById('fileAttachment-${storeName.replace(/\s/g, '-')}').click()">
+                                        Anexar Arquivo(s)
+                                    </button>
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        ${storeAttachedFiles.map((file, fileIndex) => {
+                                            const isViewable = file.type.startsWith('image/') || file.type === 'application/pdf';
+                                            let fileUrl = file.data;
+                                            if (isViewable && file.data) {
+                                                // Create a Blob and Object URL for viewable files
+                                                const byteCharacters = atob(file.data.split(',')[1]);
+                                                const byteNumbers = new Array(byteCharacters.length);
+                                                for (let i = 0; i < byteCharacters.length; i++) {
+                                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                                }
+                                                const byteArray = new Uint8Array(byteNumbers);
+                                                const blob = new Blob([byteArray], { type: file.type });
+                                                fileUrl = URL.createObjectURL(blob);
+                                                objectUrlsToRevoke.push(fileUrl); // Add to cleanup list
+                                            }
+                                            
+                                            console.log(`Debug Anexo - Loja: ${storeName}, Arquivo: ${file.name}, Tipo: ${file.type}, Visualizável: ${isViewable}, URL: ${fileUrl ? fileUrl.substring(0, 50) + '...' : 'Sem dados'}`); // Debugging line
+                                            return `
+                                                <div class="flex items-center bg-gray-100 p-2 rounded-md text-xs">
+                                                    <span class="mr-2">${file.name}</span>
+                                                    ${isViewable ? `<a href="${fileUrl}" target="_blank" class="text-blue-600 hover:underline mr-2">Abrir</a>` : ''}
+                                                    <a href="${file.data}" download="${file.name}" class="text-green-600 hover:underline mr-2">Baixar</a>
+                                                    <button type="button" class="text-red-600 hover:text-red-800 delete-file-btn" data-store="${storeName}" data-file-index="${fileIndex}">X</button>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    `;
+                    priceTableBody.appendChild(storeSummaryRow);
+                }
+
+                grandTotalElement.innerHTML = `${formatCurrency(grandTotalCash)}<br>À Vista<br>${formatCurrency(grandTotalCard)}<br>Cartão`;
+
+                document.querySelectorAll('.store-installments-input').forEach(input => {
+                    input.addEventListener('change', (e) => {
+                        const store = e.target.dataset.store;
+                        const value = parseInt(e.target.value);
+                        const current = storeBudgetDetails.get(store) || { installments: 1, observation: '', attachedFiles: [], displayType: 'cash' };
+                        storeBudgetDetails.set(store, { ...current, installments: value });
+                        renderTable();
+                    });
+                });
+
+                document.querySelectorAll('.store-observation-input').forEach(textarea => {
+                    textarea.addEventListener('change', (e) => {
+                        const store = e.target.dataset.store;
+                        const value = e.target.value;
+                        const current = storeBudgetDetails.get(store) || { installments: 1, observation: '', attachedFiles: [], displayType: 'cash' };
+                        storeBudgetDetails.set(store, { ...current, observation: value });
+                    });
+                });
+
+                // Event listener for multiple file attachments
+                document.querySelectorAll('.store-file-attachment-input').forEach(input => {
+                    input.addEventListener('change', async (e) => {
+                        const store = e.target.dataset.store;
+                        const files = Array.from(e.target.files);
+                        const current = storeBudgetDetails.get(store) || { installments: 1, observation: '', attachedFiles: [], displayType: 'cash' };
+                        
+                        const newAttachedFiles = [...current.attachedFiles];
+
+                        for (const file of files) {
+                            if (file) {
+                                const reader = new FileReader();
+                                reader.readAsDataURL(file);
+                                await new Promise(resolve => {
+                                    reader.onload = (event) => {
+                                        newAttachedFiles.push({
+                                            name: file.name,
+                                            type: file.type,
+                                            data: event.target.result
+                                        });
+                                        resolve();
+                                    };
+                                    reader.onerror = (error) => {
+                                        console.error("Erro ao ler arquivo:", error);
+                                        resolve(); // Resolve anyway to continue with next file
+                                    };
+                                });
+                            }
+                        }
+                        storeBudgetDetails.set(store, { ...current, attachedFiles: newAttachedFiles });
+                        renderTable(); // Re-render to show new files
+                        e.target.value = ''; // Clear the input so same file can be selected again
+                    });
+                });
+
+                // Event listener for deleting attached files
+                document.querySelectorAll('.delete-file-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const store = e.target.dataset.store;
+                        const fileIndex = parseInt(e.target.dataset.fileIndex);
+                        const current = storeBudgetDetails.get(store);
+                        if (current && current.attachedFiles) {
+                            current.attachedFiles.splice(fileIndex, 1);
+                            storeBudgetDetails.set(store, { ...current, attachedFiles: current.attachedFiles });
+                            renderTable(); // Re-render to remove the deleted file
+                        }
+                    });
+                });
+
+                // Add click listener to product images for modal
+                document.querySelectorAll('.product-image').forEach(img => {
+                    img.addEventListener('click', (e) => {
+                        const fullImageUrl = e.target.dataset.fullImage || e.target.src;
+                        if (fullImageUrl && !fullImageUrl.includes('placehold.co')) {
+                            modalImage.src = fullImageUrl;
+                            imageModal.style.display = 'flex';
+                            resetImageTransform(); // Reset zoom when opening new image
+                        }
+                    });
+                });
+
+                // New event listener for per-store total display radios
+                document.querySelectorAll('.store-total-display-radio').forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        const store = e.target.dataset.store;
+                        const value = e.target.value;
+                        const current = storeBudgetDetails.get(store); 
+                        if (current) { // Ensure current exists before updating
+                            storeBudgetDetails.set(store, { ...current, displayType: value });
+                            renderTable();
+                        }
+                    });
+                });
+            }
+
+            // Close modal functions
+            closeModalBtn.addEventListener('click', () => {
+                imageModal.style.display = 'none';
+            });
+
+            imageModal.addEventListener('click', (e) => {
+                if (e.target === imageModal) {
+                    imageModal.style.display = 'none';
+                }
+            });
+
+            // Image Zoom/Pan Logic
+            zoomInBtn.addEventListener('click', () => {
+                currentScale = Math.min(currentScale + 0.1, 5); // Max zoom 5x
+                applyImageTransform();
+            });
+
+            zoomOutBtn.addEventListener('click', () => {
+                currentScale = Math.max(currentScale - 0.1, 0.5); // Min zoom 0.5x
+                applyImageTransform();
+            });
+
+            resetZoomBtn.addEventListener('click', resetImageTransform);
+
+            modalImage.addEventListener('mousedown', (e) => {
+                if (currentScale > 1) { // Only allow dragging if zoomed in
+                    isDragging = true;
+                    startX = e.clientX - currentTranslateX;
+                    startY = e.clientY - currentTranslateY;
+                    modalImage.classList.add('dragging');
+                }
+            });
+
+            modalImage.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                currentTranslateX = e.clientX - startX;
+                currentTranslateY = e.clientY - startY;
+                applyImageTransform();
+            });
+
+            modalImage.addEventListener('mouseup', () => {
+                isDragging = false;
+                modalImage.classList.remove('dragging');
+            });
+
+            modalImage.addEventListener('mouseleave', () => {
+                isDragging = false;
+                modalImage.classList.remove('dragging');
+            });
+
+            modalImage.addEventListener('wheel', (e) => {
+                e.preventDefault(); // Prevent page scroll
+                const scaleAmount = 0.1;
+                const mouseX = e.clientX - modalImage.getBoundingClientRect().left;
+                const mouseY = e.clientY - modalImage.getBoundingClientRect().top;
+
+                const oldScale = currentScale;
+                if (e.deltaY < 0) { // Zoom in
+                    currentScale = Math.min(currentScale + scaleAmount, 5);
+                } else { // Zoom out
+                    currentScale = Math.max(currentScale - scaleAmount, 0.5);
+                }
+
+                // Adjust translation to zoom towards mouse pointer
+                currentTranslateX = currentTranslateX - (mouseX / oldScale) * (currentScale - oldScale);
+                currentTranslateY = currentTranslateY - (mouseY / oldScale) * (currentScale - oldScale);
+
+                applyImageTransform();
+            });
+
+
+            // Handle price input mode change
+            priceInputModeRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    if (radio.value === 'unit') {
+                        priceInputField.placeholder = 'Preço unitário';
+                    } else {
+                        priceInputField.placeholder = 'Preço total';
+                    }
+                    // When changing input mode, clear the price field
+                    priceInputField.value = '';
+                });
+            });
+
+            formatNotApplicableCheckbox.addEventListener('change', () => {
+                if (formatNotApplicableCheckbox.checked) {
+                    formatInput.value = '';
+                    formatInput.disabled = true;
+                    formatInput.placeholder = 'Não se aplica';
+                } else {
+                    formatInput.disabled = false;
+                    formatInput.placeholder = 'Ex: 60x60cm, Régua, 1 Litro';
+                }
+            });
+
+            imageInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        currentImageBase64 = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    currentImageBase64 = null;
+                }
+            });
+
+            priceForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                // Obter valor diretamente do input numérico
+                let enteredValue = parseFloat(priceInputField.value);
+                const priceInputMode = document.querySelector('input[name="priceInputMode"]:checked').value;
+                const quantity = parseFloat(quantityInput.value); // Use quantityInput directly
+
+                // Validação manual para campos obrigatórios (loja, produto, preço, quantidade)
+                if (storeInput.value.trim() === '') {
+                    alert('Por favor, preencha o campo "Loja".');
+                    storeInput.focus();
+                    return;
+                }
+                if (productInput.value.trim() === '') {
+                    alert('Por favor, preencha o campo "Produto".');
+                    productInput.focus();
+                    return;
+                }
+                // Para type="number", min="0.01" já lida com valores negativos/zero. Verificar apenas NaN.
+                if (isNaN(enteredValue)) { 
+                    alert('Por favor, insira um valor numérico válido para o preço.');
+                    priceInputField.focus(); // Foca de volta no campo para correção
+                    return;
+                }
+                if (isNaN(quantity) || quantity <= 0) { // Quantidade deve ser positiva
+                    alert('Por favor, insira um valor numérico válido e positivo para a quantidade orçada.');
+                    quantityInput.focus(); // Foca de volta no campo de quantidade
+                    return;
+                }
+
+                let unitPriceForCalculation = enteredValue;
+
+                if (priceInputMode === 'total') {
+                    if (quantity > 0) {
+                        unitPriceForCalculation = enteredValue / quantity;
+                    } else {
+                        alert('A quantidade orçada deve ser maior que zero para informar o preço total.');
+                        quantityInput.focus();
+                        return;
+                    }
+                }
+                
+                const priceType = document.querySelector('input[name="priceType"]:checked').value;
+                const discount = parseFloat(discountPercentageInput.value);
+                const increase = parseFloat(increasePercentageInput.value);
+
+                const calculatedPrices = calculateProductPrices(unitPriceForCalculation, priceType, discount, increase);
+
+                const newProduct = {
+                    store: storeInput.value,
+                    product: productInput.value,
+                    format: formatNotApplicableCheckbox.checked ? null : formatInput.value,
+                    enteredPrice: unitPriceForCalculation, // Manter enteredPrice para cálculos internos/referência
+                    priceType: priceType,
+                    calculatedCashPrice: calculatedPrices.cashPrice,
+                    calculatedCardPrice: calculatedPrices.cardPrice,
+                    quantity: quantity,
+                    image: currentImageBase64
+                };
+
+                products.push(newProduct);
+                renderTable();
+                
+                // Usar form.reset() para limpar o formulário
+                priceForm.reset();
+                
+                // Redefinir elementos específicos não tratados pelo form.reset() ou que precisam de estado específico
+                formatNotApplicableCheckbox.checked = false;
+                formatInput.disabled = false;
+                formatInput.placeholder = 'Ex: 60x60cm, Régua, 1 Litro';
+                currentImageBase64 = null;
+                imageInput.value = ''; // Limpar input de arquivo
+                document.querySelector('input[name="priceType"][value="cash"]').checked = true;
+                document.querySelector('input[name="priceInputMode"][value="unit"]').checked = true;
+
+                storeInput.focus(); // Focar no primeiro campo de entrada após a submissão bem-sucedida
+            });
+
+            // Handle direct cell editing
+            priceTableBody.addEventListener('focusout', (e) => {
+                const target = e.target;
+                // Check if the target is an editable cell and has the required data attributes
+                if (target.contentEditable === 'true' && target.dataset.field && target.dataset.index !== undefined) {
+                    const index = parseInt(target.dataset.index);
+                    const field = target.dataset.field;
+                    let newValue = target.textContent.trim();
+
+                    if (products[index]) {
+                        if (field === 'quantity') { // Only quantity is directly editable among numeric fields now
+                            let parsedValue = parseFloat(newValue.replace(',', '.'));
+                            if (isNaN(parsedValue) || parsedValue < 0.01) { // Quantity must be > 0
+                                alert('Por favor, insira um número válido e maior que zero para Quantidade.');
+                                renderTable(); // Re-render to revert invalid input
+                                return;
+                            }
+                            products[index][field] = parsedValue;
+
+                            // Recalculate prices if quantity changes, as total prices depend on it
+                            const product = products[index];
+                            const discount = parseFloat(discountPercentageInput.value);
+                            const increase = parseFloat(increasePercentageInput.value);
+                            // Recalculate based on the original enteredPrice (which is the effective unit price)
+                            const calculatedPrices = calculateProductPrices(product.enteredPrice, product.priceType, discount, increase);
+                            product.calculatedCashPrice = calculatedPrices.cashPrice;
+                            product.calculatedCardPrice = calculatedPrices.cardPrice;
+
+                        } else if (field === 'calculatedCashPrice' || field === 'calculatedCardPrice') {
+                            let parsedValue = parseCurrency(newValue);
+                            if (isNaN(parsedValue) || parsedValue < 0) { // Prices should not be negative
+                                alert('Por favor, insira um valor numérico válido e não negativo para o preço.');
+                                renderTable(); // Revert to old value
+                                return;
+                            }
+
+                            const product = products[index];
+                            const discount = parseFloat(discountPercentageInput.value);
+                            const increase = parseFloat(increasePercentageInput.value);
+
+                            if (field === 'calculatedCashPrice') {
+                                product.calculatedCashPrice = parsedValue;
+                                // Recalculate card price based on the new cash price
+                                product.calculatedCardPrice = parsedValue * (1 + increase / 100);
+                                product.enteredPrice = parsedValue; // The new base for this product's internal logic
+                                product.priceType = 'cash'; // Update the product's priceType to reflect the new base
+                            } else if (field === 'calculatedCardPrice') {
+                                product.calculatedCardPrice = parsedValue;
+                                // Recalculate cash price based on the new card price
+                                product.calculatedCashPrice = parsedValue * (1 - discount / 100);
+                                product.enteredPrice = parsedValue; // The new base for this product's internal logic
+                                product.priceType = 'card'; // Update the product's priceType to reflect the new base
+                            }
+                        }
+                        else if (field === 'product' || field === 'format' || field === 'store') { // Editable text fields
+                            products[index][field] = newValue;
+                        } else if (field === 'store') { // Handle store field update
+                            const oldStoreName = products[index].store;
+                            products[index][field] = newValue;
+                            // If the store name changed, update storeBudgetDetails map key
+                            if (oldStoreName !== newValue && storeBudgetDetails.has(oldStoreName)) {
+                                const details = storeBudgetDetails.get(oldStoreName);
+                                storeBudgetDetails.delete(oldStoreName);
+                                storeBudgetDetails.set(newValue, details);
+                            }
+                        }
+                        renderTable(); // Re-render after any valid edit
+                    }
+                }
+            });
+
+
+            // Allow editing with Enter key
+            priceTableBody.addEventListener('keydown', (e) => {
+                const target = e.target;
+                if (target.contentEditable === 'true' && e.key === 'Enter') {
+                    e.preventDefault();
+                    target.blur();
+                }
+            });
+
+            priceTableBody.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-btn')) {
+                    const indexToDelete = parseInt(e.target.dataset.index);
+                    // Ensure the index is valid before attempting to splice
+                    if (indexToDelete >= 0 && indexToDelete < products.length) {
+                        products.splice(indexToDelete, 1);
+                        renderTable();
+                    } else {
+                        console.error("Erro: Índice de exclusão inválido.", indexToDelete);
+                    }
+                }
+            });
+
+            // --- Excel Export/Import Functions ---
+
+            exportExcelBtn.addEventListener('click', () => {
+                if (products.length === 0) {
+                    alert('Não há dados para exportar. Adicione produtos primeiro.');
+                    return;
+                }
+
+                // Prepare data for export
+                const dataToExport = products.map(p => ({
+                    Loja: p.store,
+                    Produto: p.product,
+                    Formato: p.format || '',
+                    'Preço Unitário (À Vista)': p.calculatedCashPrice,
+                    'Preço Unitário (Cartão)': p.calculatedCardPrice,
+                    'Quantidade Orçada': p.quantity,
+                    // Price total for export will be raw number, Excel can format it
+                    'Preço Total': (p.priceType === 'cash' ? (p.calculatedCashPrice * p.quantity) : (p.calculatedCardPrice * p.quantity)),
+                    'Tipo de Preço': p.priceType === 'cash' ? 'À Vista' : 'Cartão', // Added back for Excel export
+                    'Imagem Base64': p.image || '' // Inclui a string Base64 da imagem
+                }));
+
+                // Add store budget details (installments, observation, attachedFiles, displayType)
+                storeBudgetDetails.forEach((details, storeName) => {
+                    dataToExport.push({
+                        Loja: storeName,
+                        Produto: 'Detalhes de Orçamento', // Special row to indicate budget details
+                        Formato: '',
+                        'Preço Unitário (À Vista)': '',
+                        'Preço Unitário (Cartão)': '',
+                        'Quantidade Orçada': '',
+                        'Preço Total': '',
+                        'Tipo de Preço': '',
+                        'Imagem Base64': '',
+                        'Parcelas da Loja': details.installments,
+                        'Observação da Loja': details.observation || '',
+                        // Serialize attachedFiles array to a JSON string for Excel export
+                        'Arquivos Anexados da Loja (JSON)': JSON.stringify(details.attachedFiles || []), 
+                        'Tipo de Exibição Total (Loja)': details.displayType || 'cash' // New field
+                    });
+                });
+
+
+                const ws = XLSX.utils.json_to_sheet(dataToExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "PesquisaDePrecos");
+                XLSX.writeFile(wb, "pesquisa_de_precos.xlsx");
+            });
+
+            importExcelBtn.addEventListener('click', () => {
+                importExcelInput.click(); // Trigger the hidden file input click
+            });
+
+            importExcelInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const json = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
+                        console.log("Conteúdo JSON do Excel:", json); // Debugging line: Shows the raw JSON parsed from Excel
+
+                        // Clear existing data
+                        products = [];
+                        storeBudgetDetails.clear();
+
+                        // Process imported data
+                        json.forEach(row => {
+                            if (row['Produto'] === 'Detalhes de Orçamento' && row['Loja']) {
+                                const storeName = row['Loja'];
+                                const installments = parseInt(row['Parcelas da Loja']) || 1;
+                                const observation = row['Observação da Loja'] || '';
+                                let attachedFiles = [];
+                                try {
+                                    // Parse attachedFiles JSON string from Excel, default to empty array if parsing fails
+                                    attachedFiles = JSON.parse(row['Arquivos Anexados da Loja (JSON)'] || '[]');
+                                } catch (e) {
+                                    console.error("Erro ao analisar JSON de arquivos anexados:", e);
+                                    attachedFiles = [];
+                                }
+                                const displayType = row['Tipo de Exibição Total (Loja)'] || 'cash'; // New field
+                                storeBudgetDetails.set(storeName, { installments: installments, observation: observation, attachedFiles: attachedFiles, displayType: displayType });
+                                console.log(`Detalhes de orçamento adicionados para loja "${storeName}":`, storeBudgetDetails.get(storeName)); // Debugging line
+                            } else {
+                                const product = {
+                                    store: row['Loja'] || '', // Ensure this column name matches Excel
+                                    product: row['Produto'] || '', // Ensure this column name matches Excel
+                                    format: row['Formato'] || null,
+                                    // Parse prices from Excel using parseFloat directly as raw:false might return numbers
+                                    enteredPrice: parseFloat(row['Preço Unitário (À Vista)']) || parseFloat(row['Preço Unitário (Cartão)']) || 0,
+                                    priceType: row['Tipo de Preço'] === 'À Vista' ? 'cash' : 'card',
+                                    calculatedCashPrice: parseFloat(row['Preço Unitário (À Vista)']) || 0,
+                                    calculatedCardPrice: parseFloat(row['Preço Unitário (Cartão)']) || 0,
+                                    quantity: parseFloat(row['Quantidade Orçada']) || 0,
+                                    image: row['Imagem Base64'] || null
+                                };
+                                products.push(product);
+                                console.log("Produto adicionado:", product); // Debugging line
+                            }
+                        });
+                        console.log("Array 'products' final após importação:", products); // Debugging line
+                        console.log("Map 'storeBudgetDetails' final após importação:", storeBudgetDetails); // Debugging line
+
+                        renderTable();
+                        alert('Dados carregados com sucesso!');
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
+            });
+
+            // Removed global event listener for displayTotalType as it's now per-store
+
+            // Function to handle enabling/disabling discount/increase fields
+            function updatePriceModifierFields() {
+                const selectedPriceType = document.querySelector('input[name="priceType"]:checked').value;
+                if (selectedPriceType === 'cash') {
+                    // Ao selecionar "À Vista", o campo de acréscimo deve ser ativado e o de desconto desativado
+                    increasePercentageInput.disabled = false; // Acréscimo ativado
+                    discountPercentageInput.disabled = true;  // Desconto desativado
+                    discountPercentageInput.value = 0; // Limpa o valor quando desativado
+                } else { // 'card'
+                    // Ao selecionar "Cartão", o campo de acréscimo deve ser desativado e o de desconto ativado
+                    increasePercentageInput.disabled = true; // Acréscimo desativado
+                    increasePercentageInput.value = 0; // Limpa o valor quando desativado
+                    discountPercentageInput.disabled = false; // Desconto ativado
+                }
+            }
+
+            // Add event listeners to priceType radios
+            priceTypeRadios.forEach(radio => {
+                radio.addEventListener('change', updatePriceModifierFields);
+            });
+
+            // Initial call to set the correct state on load
+            updatePriceModifierFields();
+
+            renderTable(); // Initial render of the table
+
+            // --- Auto-load Excel file on page load ---
+            // Removido o código de carregamento automático de ficheiros locais devido a restrições de segurança do navegador.
+            // A funcionalidade de importação de ficheiros através do botão "Carregar do Excel" permanece disponível.
+        });
+    </script>
+</body>
+</html>
